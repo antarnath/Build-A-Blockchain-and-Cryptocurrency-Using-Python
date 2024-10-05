@@ -18,9 +18,9 @@ def index():
 def make_transaction():
   return render_template('./make_transaction.html')
 
-@app.route('/view/transactions')
+@app.route('/view/transactions') 
 def view_transactions():
-  return render_template('./view_transactions.html')
+  return render_template('./view_transaction.html')
 
 
 if __name__ == '__main__':
