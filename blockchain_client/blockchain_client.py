@@ -1,15 +1,32 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import Crypto 
 import Crypto.Random
 from Crypto.PublicKey import RSA
 import binascii
+from collections import OrderedDict
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.Hash import SHA
 
 class Transaction:
-  def __init__(self, sender_address, sender_private_key, recipient_address, value):
-    self.sender_address = sender_address
+  def __init__(self, sender_public_key, sender_private_key, recipient_public_key, amount):
+    self.sender_public_key = sender_public_key
     self.sender_private_key = sender_private_key
-    self.recipient_address = recipient_address
-    self.value = value
+    self.recipient_public_key = recipient_public_key
+    self.amount = amount
+    
+  def to_dict(self):
+    return OrderedDict({
+      'sender_public_key': self.sender_public_key,
+      'sender_private_key': self.sender_private_key,
+      'recipient_public_key': self.recipient_public_key,
+      'amount': self.amount
+    })
+    
+  def sign_transaction(self):
+    private_key = RSA.importKey(binascii.unhexlify(self.sender_private_key))
+    signer = PKCS1_v1_5.new(private_key)
+    hash = SHA.new(str(self.to_dict()).encode('utf8'))
+    return binascii.hexlify(signer.sign(hash)).decode('ascii')
     
 
 app = Flask(__name__)
@@ -17,6 +34,22 @@ app = Flask(__name__)
 @app.route('/')
 def index():
   return render_template('./index.html')
+
+@app.route('/generate/transaction', methods=['POST'])
+def generate_transaction():
+  sender_public_key = request.form['sender_public_key']
+  sender_private_key = request.form['sender_private_key']
+  recipient_public_key = request.form['recipient_public_key']
+  amount = request.form['amount']
+  
+  transaction = Transaction(sender_public_key, sender_private_key, recipient_public_key, amount)
+
+  response = {
+    'transaction': transaction.to_dict(),
+    'signature': transaction.sign_transaction()
+  }
+  
+  return jsonify(response), 200
 
 @app.route('/make/transaction')
 def make_transaction():
@@ -35,6 +68,8 @@ def new_wallet():
   
   private_key_hex = binascii.hexlify(private_key.export_key(format='DER')).decode('ascii')
   public_key_hex = binascii.hexlify(public_key.export_key(format='DER')).decode('ascii')
+
+  
   response = {
     'private_key': private_key_hex,
     'public_key': public_key_hex
@@ -51,3 +86,5 @@ if __name__ == '__main__':
   port = args.port
   
   app.run(host='127.0.0.1', port=port, debug=True)
+  
+  
