@@ -1,6 +1,14 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from time import time
 from flask_cors import CORS
+from collections import OrderedDict
+import binascii
+from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.Hash import SHA
+
+
+MINING_SENDER = 'The Blockchain'
 
 class Blockchain:
   def __init__(self):
@@ -23,6 +31,34 @@ class Blockchain:
     # Reset the transaction
     self.transaction = []
     self.chain.append(block)
+    
+  def verify_transaction_signature(self, sender_public_key, signature, transaction):
+    public_key = RSA.importKey(binascii.unhexlify(sender_public_key))
+    verifier = PKCS1_v1_5.new(public_key)
+    hash = SHA.new(str(transaction).encode('utf8'))
+    try:
+      verifier.verify(hash, binascii.unhexlify(signature))
+      return True
+    except ValueError:
+      return False
+    
+  def submit_transaction(self, sender_public_key, recipient_public_key, amount, signature):
+    transaction = OrderedDict({ 
+      'sender_public_key': sender_public_key,
+      'recipient_public_key': recipient_public_key,
+      'amount': amount
+    })
+    
+    if sender_public_key == MINING_SENDER:
+      self.transactions.append(transaction)
+      return len(self.chain) + 1
+    else:
+      signature_verification = self.verify_transaction_signature(sender_public_key, signature, transaction)
+      if signature_verification:
+        self.transaction.append(transaction)
+        return len(self.chain) + 1
+      else:
+        return False
   
 
     
@@ -38,11 +74,23 @@ def index():
 
 @app.route('/transaction/new', methods=['POST'])
 def new_transaction():
-  response = {
-    'message': 'New transaction done'
-  }
+  values = request.form 
+  required = ['confirmation_sender_public_key', 'confirmation_recipient_public_key', 'confirmation_amount', 'transaction_signature']
+  if not all(k in values for k in required):
+    response = {'message': 'Missing values'}
+    return jsonify(response), 400
   
-  return jsonify(response), 201
+  transaction_result = blockchain.submit_transaction(values['confirmation_sender_public_key'], values['confirmation_recipient_public_key'], values['confirmation_amount'], values['transaction_signature'])
+  
+  if transaction_result == False:
+    response = {'message': 'Invalid transaction!'}
+    return jsonify(response), 406
+  else:
+    response = {'message': 'Transaction will be added to block' + str(transaction_result)}
+    return jsonify(response), 201
+
+
+
 
 if __name__ == '__main__':
   from argparse import ArgumentParser

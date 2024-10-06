@@ -236,6 +236,7 @@
           },
           data: $('#confirmation_transaction_form').serialize(),
           success: function(response){
+            console.log(response)
             $('#transaction_form')[0].reset();
             $('#basic_modal').modal('hide');
             $('#success_transaction_modal').modal('show');
