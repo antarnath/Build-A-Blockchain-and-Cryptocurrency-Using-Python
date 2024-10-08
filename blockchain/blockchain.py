@@ -6,14 +6,17 @@ import binascii
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA
+from uuid import uuid4
 
 
 MINING_SENDER = 'The Blockchain'
+MINING_REWARD = 1
 
 class Blockchain:
   def __init__(self):
-    self.transaction = []
+    self.transactions = []
     self.chain = []
+    self.node_id = str(uuid4()).replace('-', '')
     # Create the genesis block
     self.create_block(0, '00')
     
@@ -24,13 +27,14 @@ class Blockchain:
     block = {
       'block_number': len(self.chain) + 1,
       'timestamp': time(),
-      'transaction': self.transaction,
+      'transactions': self.transactions,
       'nonce': nonce,
       'previous_hash': previous_hash
     }
     # Reset the transaction
-    self.transaction = []
+    self.transactions = []
     self.chain.append(block)
+    return block
     
   def verify_transaction_signature(self, sender_public_key, signature, transaction):
     public_key = RSA.importKey(binascii.unhexlify(sender_public_key))
@@ -41,6 +45,13 @@ class Blockchain:
       return True
     except ValueError:
       return False
+    
+    
+  def proof_of_work(self):
+    return 123
+  
+  def hash(self, block):
+    return 'abc'
     
   def submit_transaction(self, sender_public_key, recipient_public_key, amount, signature):
     transaction = OrderedDict({ 
@@ -55,7 +66,7 @@ class Blockchain:
     else:
       signature_verification = self.verify_transaction_signature(sender_public_key, signature, transaction)
       if signature_verification:
-        self.transaction.append(transaction)
+        self.transactions.append(transaction)
         return len(self.chain) + 1
       else:
         return False
@@ -71,6 +82,42 @@ CORS(app)
 @app.route('/')
 def index():
   return render_template('./index.html')
+
+
+@app.route('/chain', methods=['GET'])
+def get_chain():
+  response = {
+    'chain': blockchain.chain,
+    'length': len(blockchain.chain)
+  }
+  return jsonify(response), 200
+
+@app.route('/transactions/get', methods=['GET'])
+def get_transactions():
+  transactions = blockchain.transactions
+  response = {
+    'transactions': transactions
+  }
+  return jsonify(response), 200
+
+
+@app.route('/mine', methods=['GET'])
+def mine():
+  nonce = blockchain.proof_of_work()
+  blockchain.submit_transaction(sender_public_key=MINING_SENDER, recipient_public_key=blockchain.node_id, amount=MINING_REWARD, signature='')
+
+  last_block = blockchain.chain[-1]
+  previous_hash = blockchain.hash(last_block)
+  block = blockchain.create_block(nonce, previous_hash)
+  
+  response = {
+    'message': "New Block Forged",
+    'block_number': block['block_number'],
+    'transactions': block['transactions'],
+    'nonce': block['nonce'],
+    'previous_hash': block['previous_hash'],
+  }
+  return jsonify(response), 200
 
 @app.route('/transaction/new', methods=['POST'])
 def new_transaction():
