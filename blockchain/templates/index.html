@@ -94,8 +94,8 @@
           for (i = 0; i < response['transactions'].length; i++){
             let transaction = [
               count, 
-              response['transactions'][i]['sender_public_key'],
               response['transactions'][i]['recipient_public_key'],
+              response['transactions'][i]['sender_public_key'],
               response['transactions'][i]['amount']
             ];
 
@@ -107,8 +107,8 @@
             data: transactions,
             columns: [
               { title: "No." },
-              { title: "Sender Public Key" },
               { title: "Recipient Public Key" },
+              { title: "Sender Public Key" },
               { title: "Amount" },
             ],
             columnDefs: [ {targets: [1,2,3], render: $.fn.dataTable.render.ellipsis( 25 )}]
@@ -176,6 +176,7 @@
           type: 'GET',
           success: function(response){
             console.log(response);
+            window.location.reload();
           },
           error: function(error){
             console.log(error);
